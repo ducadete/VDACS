@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VDACS - Visita Domiciliar ACS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Estilo para a transição suave de visibilidade */
+        .hidden { display: none; }
+        .view-content {
+            animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Estilo para o scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px;}
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        /* Garante que a sidebar sobreponha o conteúdo em telas pequenas */
+        #sidebar.translate-x-0 {
+            transform: translateX(0);
+        }
+        #sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        /* Estilos para impressão do relatório */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #report-modal, #report-modal * {
+                visibility: visible;
+            }
+            #report-modal {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            #report-modal-content {
+                box-shadow: none;
+                border: none;
+            }
+            #report-controls {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased">
+
+    <!-- Tela de Carregamento Inicial -->
+    <div id="loading-view" class="flex items-center justify-center h-screen">
+        <div class="flex flex-col items-center">
+            <svg class="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-4 text-gray-600">Carregando aplicação...</p>
+        </div>
+    </div>
+
+    <!-- Tela de Login e Registro -->
+    <div id="login-view" class="hidden min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full space-y-8">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-auto text-blue-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-home-health"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M4 20v-8a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v8"/><path d="M9 20v-5a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v5"/><path d="m16 2-2 2 2 2"/><path d="M12 9v4"/><path d="M10 11h4"/></svg>
+                <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                    Sistema VDACS
+                </h2>
+                <p class="mt-2 text-center text-sm text-gray-600">
+                    Acesso ao sistema de Visita Domiciliar
+                </p>
+            </div>
+            
+            <div id="auth-forms-container">
+                <!-- Formulário de Login -->
+                <form id="login-form" class="mt-8 space-y-6">
+                    <div class="rounded-md shadow-sm -space-y-px">
+                        <div>
+                            <label for="login-email" class="sr-only">Email</label>
+                            <input id="login-email" name="email" type="email" autocomplete="email" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" placeholder="Endereço de e-mail">
+                        </div>
+                        <div>
+                            <label for="login-password" class="sr-only">Senha</label>
+                            <input id="login-password" name="password" type="password" autocomplete="current-password" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" placeholder="Senha">
+                        </div>
+                    </div>
+
+                    <div>
+                        <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Entrar
+                        </button>
+                    </div>
+                     <p class="text-center text-sm">Não tem uma conta? <a href="#" id="show-register-form" class="font-medium text-blue-600 hover:text-blue-500">Cadastre-se</a></p>
+                </form>
+
+                <!-- Formulário de Registro -->
+                <form id="register-form" class="mt-8 space-y-6 hidden">
+                    <div class="rounded-md shadow-sm space-y-3">
+                        <input id="register-name" type="text" required class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Nome Completo">
+                        <input id="register-email" type="email" required class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Seu e-mail">
+                        <input id="register-password" type="password" required class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Crie uma senha">
+                        <select id="register-equipe" required class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <option value="" disabled selected>Selecione sua Equipe</option>
+                            <option value="071">071</option>
+                            <option value="072">072</option>
+                            <option value="076">076</option>
+                        </select>
+                         <select id="register-microarea" required class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <option value="" disabled selected>Selecione sua Microárea</option>
+                            <option value="01">01</option>
+                            <option value="02">02</option>
+                            <option value="03">03</option>
+                            <option value="04">04</option>
+                            <option value="05">05</option>
+                            <option value="06">06</option>
+                        </select>
+                        <input id="register-admin-code" type="password" class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Código de Administrador (opcional)">
+                    </div>
+                    <div>
+                        <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            Registrar
+                        </button>
+                    </div>
+                     <p class="text-center text-sm">Já tem uma conta? <a href="#" id="show-login-form" class="font-medium text-blue-600 hover:text-blue-500">Faça o login</a></p>
+                </form>
+            </div>
+            
+            <div id="auth-message" class="text-center text-sm p-3 rounded-md"></div>
+        </div>
+    </div>
+
+    <!-- Interface Principal da Aplicação -->
+    <div id="app-view" class="hidden">
+        <div class="relative min-h-screen md:flex">
+            <!-- Overlay para fechar o menu no mobile -->
+            <div id="sidebar-overlay" class="fixed inset-0 bg-black opacity-50 z-20 hidden md:hidden"></div>
+            <!-- Sidebar -->
+            <div id="sidebar" class="fixed inset-y-0 left-0 bg-white w-64 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-30">
+                 <div class="flex items-center justify-center mt-8">
+                    <div class="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-home-health"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M4 20v-8a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v8"/><path d="M9 20v-5a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v5"/><path d="m16 2-2 2 2 2"/><path d="M12 9v4"/><path d="M10 11h4"/></svg>
+                        <span class="text-gray-800 text-2xl font-semibold ml-2">VDACS</span>
+                    </div>
+                </div>
+                <nav class="mt-10">
+                    <a class="nav-link flex items-center mt-4 py-2 px-6 bg-gray-200 text-gray-700" href="#" data-view="dashboard">
+                        <i data-lucide="layout-dashboard"></i><span class="mx-3">Dashboard</span>
+                    </a>
+                    <a class="nav-link flex items-center mt-4 py-2 px-6 text-gray-600 hover:bg-gray-200 hover:text-gray-700" href="#" data-view="pacientes">
+                        <i data-lucide="users"></i><span class="mx-3">Pacientes</span>
+                    </a>
+                    <a class="nav-link flex items-center mt-4 py-2 px-6 text-gray-600 hover:bg-gray-200 hover:text-gray-700" href="#" data-view="domicilios">
+                        <i data-lucide="home"></i><span class="mx-3">Domicílios</span>
+                    </a>
+                    <a class="nav-link flex items-center mt-4 py-2 px-6 text-gray-600 hover:bg-gray-200 hover:text-gray-700" href="#" data-view="visitas">
+                        <i data-lucide="clipboard-list"></i><span class="mx-3">Visitas Domiciliares</span>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Conteúdo Principal -->
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <header class="flex justify-between items-center py-4 px-6 bg-white border-b-4 border-blue-600">
+                    <div class="flex items-center">
+                        <button id="menu-button" class="text-gray-500 focus:outline-none md:hidden">
+                           <i data-lucide="menu"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center">
+                        <span id="user-name" class="text-gray-700 text-sm mr-4 font-medium text-right"></span>
+                        <button id="logout-button" class="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded-md text-sm font-medium flex items-center">
+                           <i data-lucide="log-out" class="w-4 h-4 mr-2"></i> Sair
+                        </button>
+                    </div>
+                </header>
+
+                <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-200 p-4 md:p-6">
+                    <!-- Conteúdo dinâmico aqui -->
+                    <div id="dashboard-view-content" class="view-content">
+                        <h1 class="text-2xl font-semibold text-gray-800 mb-4">Dashboard Geral</h1>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                            <div class="bg-white rounded-lg shadow p-5 flex flex-col">
+                                <h3 class="text-base font-semibold text-gray-700">Pacientes</h3>
+                                <p id="indicator-pacientes" class="text-3xl font-bold text-blue-600 mt-2">0</p>
+                            </div>
+                            <div class="bg-white rounded-lg shadow p-5 flex flex-col">
+                                <h3 class="text-base font-semibold text-gray-700">Domicílios</h3>
+                                <p id="indicator-domicilios" class="text-3xl font-bold text-green-600 mt-2">0</p>
+                            </div>
+                            <div class="bg-white rounded-lg shadow p-5 flex flex-col">
+                                <h3 class="text-base font-semibold text-gray-700">Famílias</h3>
+                                <p id="indicator-familias" class="text-3xl font-bold text-indigo-600 mt-2">0</p>
+                            </div>
+                            <div class="bg-white rounded-lg shadow p-5 flex flex-col">
+                                <h3 class="text-base font-semibold text-gray-700">Visitas no Mês</h3>
+                                <p id="indicator-visitas" class="text-3xl font-bold text-yellow-600 mt-2">0</p>
+                                <span id="indicator-visitas-mes" class="text-xs text-gray-500"></span>
+                            </div>
+                            <div class="bg-white rounded-lg shadow p-5 flex flex-col">
+                                <h3 class="text-base font-semibold text-gray-700">Pendências no Mês</h3>
+                                <p id="indicator-pendencias" class="text-3xl font-bold text-red-600 mt-2">0</p>
+                                <span id="indicator-pendencias-mes" class="text-xs text-gray-500"></span>
+                            </div>
+                        </div>
+
+                        <h2 class="text-xl font-semibold text-gray-800 mb-4">Indicadores de Desempenho (<span id="quadrimestre-label"></span>)</h2>
+                        <div id="performance-indicators-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                            <!-- Indicadores de Performance serão inseridos aqui -->
+                        </div>
+                    </div>
+                    
+                    <div id="pacientes-view-content" class="view-content hidden">
+                        <div class="flex flex-col lg:flex-row justify-between lg:items-center mb-4 gap-4">
+                            <h1 class="text-2xl font-semibold text-gray-800 shrink-0">Cadastro de Pacientes</h1>
+                            <div class="w-full flex flex-col sm:flex-row items-center gap-2 flex-wrap">
+                                <!-- Search Bar -->
+                                <div class="relative w-full sm:w-auto flex-grow">
+                                    <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                                        <i data-lucide="search" class="w-5 h-5 text-gray-400"></i>
+                                    </span>
+                                    <input id="search-paciente-input" type="search" class="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Buscar paciente...">
+                                </div>
+                                <!-- Filter Dropdown -->
+                                <select id="filter-pacientes-select" class="w-full sm:w-auto border rounded-lg text-sm px-4 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="todos">Filtrar por...</option>
+                                    <option value="com-visita">Com Visita (mês)</option>
+                                    <option value="sem-visita">Sem Visita (mês)</option>
+                                </select>
+                                <label for="group-by-family-toggle" class="flex items-center cursor-pointer">
+                                    <span class="mr-3 text-sm font-medium text-gray-900">Agrupar</span>
+                                    <div class="relative">
+                                        <input type="checkbox" id="group-by-family-toggle" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </div>
+                                </label>
+                                 <button id="show-paciente-form-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center justify-center shrink-0">
+                                    <i data-lucide="plus" class="w-4 h-4 mr-2"></i> Novo
+                                 </button>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow overflow-x-auto">
+                            <table class="w-full whitespace-nowrap">
+                                <thead>
+                                    <tr class="text-left font-bold bg-gray-50">
+                                        <th class="px-6 pt-6 pb-4">Nome Completo</th>
+                                        <th class="px-6 pt-6 pb-4">Endereço</th>
+                                        <th class="px-6 pt-6 pb-4">Idade</th>
+                                        <th class="px-6 pt-6 pb-4">Equipe</th>
+                                        <th class="px-6 pt-6 pb-4">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pacientes-table-body">
+                                    <!-- Dados dos pacientes aqui -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="pacientes-form-content" class="view-content hidden">
+                        <h1 id="paciente-form-title" class="text-2xl font-semibold text-gray-800 mb-4">Novo Paciente</h1>
+                        <div class="bg-white p-6 rounded-lg shadow">
+                            <form id="paciente-form">
+                                <input type="hidden" id="paciente-id">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="md:col-span-2">
+                                        <label for="paciente-nome" class="block text-sm font-medium text-gray-700">Nome Completo</label>
+                                        <input type="text" id="paciente-nome" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label for="paciente-domicilio" class="block text-sm font-medium text-gray-700">Domicílio</label>
+                                        <select id="paciente-domicilio" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                            <option value="">Selecione o domicílio...</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="paciente-cns" class="block text-sm font-medium text-gray-700">CNS (opcional)</label>
+                                        <input type="text" id="paciente-cns" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label for="paciente-nascimento" class="block text-sm font-medium text-gray-700">Data de Nascimento</label>
+                                        <input type="date" id="paciente-nascimento" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label for="paciente-idade" class="block text-sm font-medium text-gray-700">Idade</label>
+                                        <input type="text" id="paciente-idade" disabled class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-100 cursor-not-allowed">
+                                    </div>
+                                    <div>
+                                        <label for="paciente-sexo" class="block text-sm font-medium text-gray-700">Sexo</label>
+                                        <select id="paciente-sexo" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                            <option value="" disabled selected>Selecione...</option>
+                                            <option value="Masculino">Masculino</option>
+                                            <option value="Feminino">Feminino</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="md:col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700">Condições de Saúde</label>
+                                        <div id="condicoes-saude-container" class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                                            <!-- Checkboxes serão inseridos aqui via JS -->
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label for="paciente-bolsa-familia" class="block text-sm font-medium text-gray-700">Recebe Bolsa Família?</label>
+                                        <select id="paciente-bolsa-familia" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                            <option value="Não">Não</option>
+                                            <option value="Sim">Sim</option>
+                                        </select>
+                                    </div>
+                                     <div>
+                                        <label for="paciente-nis" class="block text-sm font-medium text-gray-700">Nº do NIS (opcional)</label>
+                                        <input type="text" id="paciente-nis" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    </div>
+
+                                </div>
+                                <div class="mt-6 flex justify-end space-x-3">
+                                    <button type="button" id="cancel-paciente-form-btn" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400">Cancelar</button>
+                                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Salvar Paciente</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div id="domicilios-view-content" class="view-content hidden">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                             <h1 class="text-2xl font-semibold text-gray-800">Cadastro de Domicílios</h1>
+                             <button id="show-domicilio-form-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center w-full sm:w-auto justify-center">
+                                <i data-lucide="plus" class="w-4 h-4 mr-2"></i> Novo Domicílio
+                             </button>
+                        </div>
+                        <div class="bg-white rounded-lg shadow overflow-x-auto">
+                            <table class="w-full whitespace-nowrap">
+                                <thead>
+                                    <tr class="text-left font-bold bg-gray-50">
+                                        <th class="px-6 pt-6 pb-4">Nº Família</th>
+                                        <th class="px-6 pt-6 pb-4">Endereço</th>
+                                        <th class="px-6 pt-6 pb-4">Número</th>
+                                        <th class="px-6 pt-6 pb-4">Moradores</th>
+                                        <th class="px-6 pt-6 pb-4">Tipo</th>
+                                        <th class="px-6 pt-6 pb-4">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="domicilios-table-body">
+                                    <!-- Dados dos domicilios aqui -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="domicilios-form-content" class="view-content hidden">
+                        <h1 id="domicilio-form-title" class="text-2xl font-semibold text-gray-800 mb-4">Novo Domicílio</h1>
+                        <div class="bg-white p-6 rounded-lg shadow">
+                            <form id="domicilio-form">
+                                <input type="hidden" id="domicilio-id">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="md:col-span-2">
+                                        <label for="domicilio-endereco" class="block text-sm font-medium text-gray-700">Endereço (Rua, Av.)</label>
+                                        <input type="text" id="domicilio-endereco" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label for="domicilio-numero" class="block text-sm font-medium text-gray-700">Número</label>
+                                        <input type="text" id="domicilio-numero" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label for="domicilio-familia-numero" class="block text-sm font-medium text-gray-700">Número da Família</label>
+                                        <input type="number" id="domicilio-familia-numero" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label for="domicilio-tipo" class="block text-sm font-medium text-gray-700">Tipo de Domicílio</label>
+                                        <select id="domicilio-tipo" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                            <option value="CASA">Casa</option>
+                                            <option value="CASA VAZIA">Casa Vazia</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mt-6 flex justify-end space-x-3">
+                                    <button type="button" id="cancel-domicilio-form-btn" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400">Cancelar</button>
+                                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Salvar Domicílio</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div id="visitas-view-content" class="view-content hidden">
+                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                             <h1 class="text-2xl font-semibold text-gray-800">Registro de Visitas</h1>
+                             <button id="show-visita-form-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center w-full sm:w-auto justify-center">
+                                <i data-lucide="plus" class="w-4 h-4 mr-2"></i> Nova Visita
+                             </button>
+                        </div>
+                        <div class="bg-white rounded-lg shadow overflow-x-auto">
+                            <table class="w-full whitespace-nowrap">
+                                <thead>
+                                    <tr class="text-left font-bold bg-gray-50">
+                                        <th class="px-6 pt-6 pb-4">Data</th>
+                                        <th class="px-6 pt-6 pb-4">Paciente</th>
+                                        <th class="px-6 pt-6 pb-4">Desfecho</th>
+                                        <th class="px-6 pt-6 pb-4">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="visitas-table-body">
+                                    <!-- Dados das visitas aqui -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="visitas-form-content" class="view-content hidden">
+                        <h1 id="visita-form-title" class="text-2xl font-semibold text-gray-800 mb-4">Registrar Nova Visita</h1>
+                        <div class="bg-white p-6 rounded-lg shadow">
+                            <form id="visita-form" class="space-y-6">
+                                <input type="hidden" id="visita-id">
+                                
+                                <!-- Seção do Paciente e Imóvel -->
+                                <fieldset class="border p-4 rounded-md">
+                                    <legend class="text-lg font-medium text-gray-900 px-2">Usuário e Endereço</legend>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                        <div class="md:col-span-2">
+                                            <label for="visita-paciente-input" class="block text-sm font-medium text-gray-700">Usuário do Serviço (Paciente)</label>
+                                            <input id="visita-paciente-input" list="pacientes-list" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Digite para buscar...">
+                                            <datalist id="pacientes-list"></datalist>
+                                        </div>
+                                        <div>
+                                            <label for="visita-data" class="block text-sm font-medium text-gray-700">Data da Visita</label>
+                                            <input type="date" id="visita-data" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Imóvel</label>
+                                            <div class="flex items-center space-x-4 mt-2">
+                                                <div class="flex items-center"><input type="checkbox" id="imovel-dengue" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"><label for="imovel-dengue" class="ml-2">Risco de Dengue</label></div>
+                                                <div class="flex items-center"><input type="checkbox" id="imovel-construcao" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"><label for="imovel-construcao" class="ml-2">Nova Construção</label></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Visita Compartilhada?</label>
+                                            <div class="flex items-center mt-2"><input type="checkbox" id="visita-compartilhada" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"><label for="visita-compartilhada" class="ml-2">Sim, com outro profissional</label></div>
+                                        </div>
+                                        <div>
+                                            <label for="visita-higiene" class="block text-sm font-medium text-gray-700">Estado de Higiene</label>
+                                            <select id="visita-higiene" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                                <option>Bom</option><option>Regular</option><option>Ruim</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="visita-conservacao" class="block text-sm font-medium text-gray-700">Conservação</label>
+                                            <select id="visita-conservacao" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                                 <option>Bom</option><option>Regular</option><option>Ruim</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </fieldset>
+
+                                <!-- Seção Desfecho e Motivos -->
+                                <fieldset class="border p-4 rounded-md">
+                                    <legend class="text-lg font-medium text-gray-900 px-2">Desfecho e Motivo da Visita</legend>
+                                    <div class="mt-2">
+                                        <label class="block text-sm font-medium text-gray-700">Desfecho da Visita *</label>
+                                        <div id="visita-desfecho" class="flex flex-wrap gap-4 mt-1">
+                                            <div class="flex items-center"><input type="radio" id="desfecho-realizada" name="desfecho" value="Visita Realizada" required class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"><label for="desfecho-realizada" class="ml-2">Visita Realizada</label></div>
+                                            <div class="flex items-center"><input type="radio" id="desfecho-recusada" name="desfecho" value="Visita Recusada" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"><label for="desfecho-recusada" class="ml-2">Visita Recusada</label></div>
+                                            <div class="flex items-center"><input type="radio" id="desfecho-ausente" name="desfecho" value="Ausente" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"><label for="desfecho-ausente" class="ml-2">Ausente</label></div>
+                                        </div>
+                                    </div>
+                                    <div id="motivos-container" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+                                        <!-- Os motivos serão inseridos aqui via JS -->
+                                    </div>
+                                </fieldset>
+
+                                 <!-- Seção Observação -->
+                                <fieldset class="border p-4 rounded-md">
+                                     <legend class="text-lg font-medium text-gray-900 px-2">Observações</legend>
+                                     <textarea id="visita-observacao" rows="4" class="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Digite suas observações aqui..."></textarea>
+                                </fieldset>
+
+
+                                <div class="mt-6 flex justify-end space-x-3">
+                                    <button type="button" id="cancel-visita-form-btn" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400">Cancelar</button>
+                                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Salvar Visita</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                </main>
+            </div>
+        </div>
+
+        <!-- Report Modal -->
+        <div id="report-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div id="report-modal-content" class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                <div id="report-controls" class="p-4 border-b flex justify-between items-center">
+                    <h2 id="report-title" class="text-xl font-bold">Relatório Analítico</h2>
+                    <div>
+                        <button id="print-report-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 mr-2">Imprimir</button>
+                        <button id="close-report-modal-btn" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400">Fechar</button>
+                    </div>
+                </div>
+                <div id="report-body" class="p-6 overflow-y-auto">
+                    <!-- Report content will be injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Módulo do Firebase -->
+    <script type="module">
+        // Importações do Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword, 
+            signOut, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            getDoc,
+            getDocs,
+            addDoc,
+            collection,
+            onSnapshot,
+            serverTimestamp,
+            query,
+            where, // Importa o 'where' para as consultas
+            updateDoc,
+            deleteDoc
+        } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBAY2QdI9cot6aFXcCXK-Z72Lo9cEIIQ2k",
+            authDomain: "vdacs-a4223.firebaseapp.com",
+            projectId: "vdacs-a4223",
+            storageBucket: "vdacs-a4223.appspot.com",
+            messagingSenderId: "572521921657",
+            appId: "1:572521921657:web:043f3d246500109725a8a8",
+            measurementId: "G-GL3YTE3LH8"
+        };
+
+        // Inicializa o Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- VARIÁVEIS GLOBAIS ---
+        let currentUserData = null; // Armazena os dados do usuário logado
+        const ADMIN_SECRET_CODE = "VDACS_ADMIN_2024"; // Código para registrar como admin
+        const condicoesDeSaude = [
+            "HIPERTENSÃO ARTERIAL", "DIABETES MELLITUS TIPO 1", "DIABETES MELLITUS TIPO 2",
+            "INSULINO-DEPENDENTE", "GESTANTE", "ACAMADO", "DOMICILIADO"
+        ];
+         const motivosVisita = {
+            "Geral": ["Convite para atividades coletivas / campanha de saúde", "Orientação / Prevenção", "Outros"],
+            "Controle ambiental / vetorial": ["Ação educativa", "Imóvel com foco", "Ação mecânica", "Tratamento focal"],
+            "Busca Ativa": ["Consulta", "Exame", "Vacina", "Condicionalidades do Bolsa Família"],
+            "Acompanhamento": [
+                "Gestante", "Puérpera", "Recém Nascido", "Criança", "Pessoa com Desnutrição",
+                "Pessoa em Reabilitação ou com Deficiência", "Pessoa com Hipertensão", "Pessoa com Diabetes",
+                "Pessoa com Asma", "Pessoa com DPOC/Enfisema", "Pessoa com Câncer",
+                "Pessoa com outras Doença Crônicas", "Pessoa com Hanseníase", "Pessoa com Tuberculose",
+                "Sintomáticos respiratórios", "Tabagista", "Domiciliados / Acamados",
+                "Condições de Vulnerabilidade Social", "Condicionalidades do Bolsa Família",
+                "Saúde Mental", "Usuário de Álcool", "Usuário de Drogas"
+            ]
+        };
+
+        // --- REFERÊNCIAS AO DOM ---
+        const loginView = document.getElementById('login-view');
+        const appView = document.getElementById('app-view');
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const logoutButton = document.getElementById('logout-button');
+        const userNameSpan = document.getElementById('user-name');
+        const authMessageDiv = document.getElementById('auth-message');
+        const showRegisterLink = document.getElementById('show-register-form');
+        const showLoginLink = document.getElementById('show-login-form');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const content_views = document.querySelectorAll('.view-content');
+        
+        // --- FUNÇÕES UTILITÁRIAS ---
+        const calculateAge = (birthDateString) => {
+            if (!birthDateString) return null;
+            const birthDate = new Date(birthDateString);
+            birthDate.setMinutes(birthDate.getMinutes() + birthDate.getTimezoneOffset());
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            return age >= 0 ? age : null;
+        };
+
+        const getCurrentQuadrimestreInfo = () => {
+            const now = new Date();
+            const month = now.getMonth(); // 0-11
+            let quad;
+            let endDate;
+
+            if (month < 4) { // Jan-Apr
+                quad = 1;
+                endDate = new Date(now.getFullYear(), 4, 0); // Last day of April
+            } else if (month < 8) { // May-Aug
+                quad = 2;
+                endDate = new Date(now.getFullYear(), 8, 0); // Last day of August
+            } else { // Sep-Dec
+                quad = 3;
+                endDate = new Date(now.getFullYear(), 12, 0); // Last day of December
+            }
+            
+            return {
+                label: `${quad}º Quadrimestre de ${now.getFullYear()}`,
+                endDate: endDate
+            };
+        };
+
+        // --- LÓGICA DE NAVEGAÇÃO E VISUALIZAÇÃO ---
+        
+        const showMainView = (view) => {
+            document.getElementById('loading-view').classList.add('hidden');
+            loginView.classList.add('hidden');
+            appView.classList.add('hidden');
+            view.classList.remove('hidden');
+        };
+        
+        const showContentView = (viewId) => {
+            content_views.forEach(v => v.classList.add('hidden'));
+            document.getElementById(`${viewId}-view-content`).classList.remove('hidden');
+            
+            const contentMap = {
+                pacientes: ['pacientes-view-content', 'pacientes-form-content'],
+                domicilios: ['domicilios-view-content', 'domicilios-form-content'],
+                visitas: ['visitas-view-content', 'visitas-form-content']
+            };
+
+            if (contentMap[viewId]) {
+                document.getElementById(contentMap[viewId][0]).classList.remove('hidden');
+                document.getElementById(contentMap[viewId][1]).classList.add('hidden');
+            }
+        };
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                navLinks.forEach(l => {
+                    l.classList.remove('bg-gray-200', 'text-gray-700');
+                    l.classList.add('text-gray-600', 'hover:bg-gray-200', 'hover:text-gray-700');
+                });
+                link.classList.add('bg-gray-200', 'text-gray-700');
+                link.classList.remove('text-gray-600', 'hover:bg-gray-200', 'hover:text-gray-700');
+                const viewId = link.getAttribute('data-view');
+                showContentView(viewId);
+                // Fecha a sidebar no mobile ao clicar em um link
+                if(window.innerWidth < 768) {
+                    document.getElementById('sidebar').classList.add('-translate-x-full');
+                    document.getElementById('sidebar-overlay').classList.add('hidden');
+                }
+            });
+        });
+
+        // --- LÓGICA DE AUTENTICAÇÃO ---
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                try {
+                    const userDocRef = doc(db, "users", user.uid);
+                    const userDocSnap = await getDoc(userDocRef);
+
+                    if (userDocSnap.exists() && userDocSnap.data().approved === true) {
+                        currentUserData = { uid: user.uid, ...userDocSnap.data() };
+                        userNameSpan.textContent = currentUserData.nome;
+                        showMainView(appView);
+                        loadInitialData(); 
+                        updateDashboard();
+                    } else {
+                        await signOut(auth);
+                        currentUserData = null;
+                        showAuthMessage('Sua conta está pendente de aprovação pelo administrador.', 'info');
+                        showMainView(loginView);
+                    }
+                } catch (error) {
+                    console.error("Erro ao verificar status do usuário:", error);
+                    await signOut(auth);
+                    currentUserData = null;
+                    if (error.code === 'permission-denied') {
+                        showAuthMessage('ERRO: As Regras de Segurança do Firestore estão bloqueando o acesso. Verifique as permissões.', 'error');
+                    } else {
+                        showAuthMessage('Falha ao carregar dados do usuário. Contate o administrador.', 'error');
+                    }
+                    showMainView(loginView);
+                }
+            } else {
+                currentUserData = null;
+                showMainView(loginView);
+            }
+        });
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = loginForm['login-email'].value;
+            const password = loginForm['login-password'].value;
+            signInWithEmailAndPassword(auth, email, password)
+                .catch(error => {
+                    console.error("Erro no login:", error.code); // Log para depuração
+                    let friendlyMessage = 'Ocorreu um erro desconhecido. Tente novamente.';
+                    
+                    if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+                        friendlyMessage = 'E-mail ou senha inválidos. Verifique os dados e tente novamente. Lembre-se que sua conta precisa ser aprovada pelo administrador.';
+                    } else if (error.code === 'auth/too-many-requests') {
+                        friendlyMessage = 'Acesso bloqueado temporariamente devido a muitas tentativas. Por favor, tente novamente mais tarde.';
+                    } else if (error.code === 'auth/invalid-email') {
+                         friendlyMessage = 'O formato do e-mail fornecido é inválido.';
+                    }
+
+                    showAuthMessage(friendlyMessage, 'error');
+                });
+        });
+
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nome = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const equipe = document.getElementById('register-equipe').value;
+            const microarea = document.getElementById('register-microarea').value;
+            const adminCode = document.getElementById('register-admin-code').value;
+
+            if(!nome || !equipe || !microarea) {
+                showAuthMessage('Por favor, preencha todos os campos obrigatórios.', 'error');
+                return;
+            }
+            
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                const isRegisteringAsAdmin = adminCode === ADMIN_SECRET_CODE;
+
+                await setDoc(doc(db, "users", user.uid), {
+                    nome: nome,
+                    email: user.email,
+                    equipe: equipe,
+                    microarea: microarea,
+                    role: isRegisteringAsAdmin ? 'admin' : 'user',
+                    approved: isRegisteringAsAdmin, // Admin é aprovado automaticamente
+                    createdAt: serverTimestamp()
+                });
+                
+                let successMessage = 'Cadastro realizado! Aguarde a aprovação do administrador.';
+                if(isRegisteringAsAdmin){
+                    successMessage = 'Conta de Administrador criada e aprovada com sucesso!';
+                }
+
+                showAuthMessage(successMessage, 'success');
+                registerForm.reset();
+                toggleAuthForms();
+
+            } catch (error) {
+                if (error.code === 'auth/email-already-in-use') {
+                    showAuthMessage('Este e-mail já está cadastrado.', 'error');
+                } else if (error.code === 'permission-denied') {
+                     showAuthMessage('ERRO DE PERMISSÃO: Falha ao criar perfil. Verifique as Regras de Segurança no Firestore.', 'error');
+                } else {
+                    showAuthMessage('Ocorreu um erro ao se registrar.', 'error');
+                }
+            }
+        });
+
+        logoutButton.addEventListener('click', () => signOut(auth));
+        
+        const toggleAuthForms = () => {
+            loginForm.classList.toggle('hidden');
+            registerForm.classList.toggle('hidden');
+            authMessageDiv.textContent = '';
+            authMessageDiv.className = 'text-center text-sm p-3 rounded-md';
+        };
+        showRegisterLink.addEventListener('click', (e) => { e.preventDefault(); toggleAuthForms(); });
+        showLoginLink.addEventListener('click', (e) => { e.preventDefault(); toggleAuthForms(); });
+
+        const showAuthMessage = (message, type = 'info') => {
+            authMessageDiv.textContent = message;
+            const types = {
+                success: 'bg-green-100 text-green-800',
+                error: 'bg-red-100 text-red-800',
+                info: 'bg-blue-100 text-blue-800'
+            };
+            authMessageDiv.className = `text-center text-sm p-3 rounded-md ${types[type] || types.info}`;
+        };
+
+        // --- LÓGICA DE PACIENTES (CRUD) ---
+        const pacienteFormContent = document.getElementById('pacientes-form-content');
+        const pacienteViewContent = document.getElementById('pacientes-view-content');
+        const pacienteForm = document.getElementById('paciente-form');
+        const pacienteFormTitle = document.getElementById('paciente-form-title');
+        const pacienteIdInput = document.getElementById('paciente-id');
+        const pacientesTableBody = document.getElementById('pacientes-table-body');
+        const pacienteDomicilioSelect = document.getElementById('paciente-domicilio');
+        const groupByFamilyToggle = document.getElementById('group-by-family-toggle');
+        const searchPacienteInput = document.getElementById('search-paciente-input');
+        const filterPacientesSelect = document.getElementById('filter-pacientes-select');
+        
+        let lastPacientesList = [];
+        let lastVisitStatus = {};
+        let searchTerm = '';
+        let activeFilter = 'todos';
+        
+        const applyFiltersAndRender = () => {
+            let filteredPacientes = [...lastPacientesList];
+
+            // 1. Search filter
+            if (searchTerm) {
+                filteredPacientes = filteredPacientes.filter(p =>
+                    p.nome.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+            }
+
+            // 2. Dropdown filter
+            if (activeFilter && activeFilter !== 'todos') {
+                if (activeFilter === 'com-visita') {
+                    filteredPacientes = filteredPacientes.filter(p => lastVisitStatus[p.id]);
+                } else if (activeFilter === 'sem-visita') {
+                    filteredPacientes = filteredPacientes.filter(p => !lastVisitStatus[p.id]);
+                } else { // It's a health condition
+                    filteredPacientes = filteredPacientes.filter(p =>
+                        p.condicoes && p.condicoes.includes(activeFilter)
+                    );
+                }
+            }
+
+            renderPacientes(filteredPacientes, lastVisitStatus);
+        }
+
+        searchPacienteInput.addEventListener('input', (e) => {
+            searchTerm = e.target.value;
+            applyFiltersAndRender();
+        });
+
+        filterPacientesSelect.addEventListener('change', (e) => {
+            activeFilter = e.target.value;
+            applyFiltersAndRender();
+        });
+
+        groupByFamilyToggle.addEventListener('change', () => {
+            applyFiltersAndRender();
+        });
+        
+        const renderPacientes = (pacientes, visitStatus) => {
+            const isGrouped = groupByFamilyToggle.checked;
+            pacientesTableBody.innerHTML = '';
+             if (pacientes.length === 0) {
+                pacientesTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-500">Nenhum paciente encontrado.</td></tr>`;
+                return;
+            }
+
+            const statusInfo = {
+                'realizada': { color: 'bg-green-500', title: 'Visita realizada este mês' },
+                'recusada/ausente': { color: 'bg-yellow-500', title: 'Visita recusada/ausente este mês' }
+            };
+            const defaultStatus = { color: 'bg-red-500', title: 'Sem visita este mês' };
+
+            const createPatientRow = (paciente) => {
+                const status = visitStatus[paciente.id];
+                const currentStatus = statusInfo[status] || defaultStatus;
+                const idade = calculateAge(paciente.nascimento);
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 border-t';
+                tr.innerHTML = `
+                    <td class="px-6 py-4 flex items-center">
+                        <span class="h-3 w-3 rounded-full mr-3 shrink-0 ${currentStatus.color}" title="${currentStatus.title}"></span>
+                        <span class="truncate">${paciente.nome}</span>
+                    </td>
+                    <td class="px-6 py-4">${paciente.domicilioEndereco || 'Não vinculado'}</td>
+                    <td class="px-6 py-4">${idade === null ? 'N/I' : idade}</td>
+                    <td class="px-6 py-4">${paciente.equipe}</td>
+                    <td class="px-6 py-4 flex items-center gap-2">
+                        <button class="edit-paciente-btn text-blue-500 hover:text-blue-700" data-id="${paciente.id}"><i data-lucide="edit" class="w-5 h-5"></i></button>
+                        <button class="delete-paciente-btn text-red-500 hover:text-red-700" data-id="${paciente.id}"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    </td>
+                `;
+                return tr;
+            };
+
+            if (isGrouped) {
+                const groupedByDomicilio = pacientes.reduce((acc, paciente) => {
+                    const key = paciente.domicilioId || 'sem-domicilio';
+                    if (!acc[key]) {
+                        acc[key] = {
+                            endereco: paciente.domicilioEndereco || 'Sem Domicílio Vinculado',
+                            numero_familia: paciente.domicilioFamiliaNumero || '',
+                            pacientes: []
+                        };
+                    }
+                    acc[key].pacientes.push(paciente);
+                    return acc;
+                }, {});
+
+                Object.values(groupedByDomicilio).sort((a, b) => {
+                    const numA = parseInt(a.numero_familia, 10) || 0;
+                    const numB = parseInt(b.numero_familia, 10) || 0;
+                    if (numA !== numB) {
+                        return numA - numB;
+                    }
+                    return a.endereco.localeCompare(b.endereco);
+                }).forEach(group => {
+                    const headerRow = document.createElement('tr');
+                    headerRow.className = 'bg-gray-200 sticky top-0';
+                    headerRow.innerHTML = `<td colspan="5" class="px-6 py-2 font-bold text-gray-700">Família ${group.numero_familia} - ${group.endereco}</td>`;
+                    pacientesTableBody.appendChild(headerRow);
+                    group.pacientes.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(paciente => {
+                        const row = createPatientRow(paciente);
+                        row.querySelector('td:nth-child(2)').textContent = ''; // Clear address in grouped view
+                        pacientesTableBody.appendChild(row);
+                    });
+                });
+            } else {
+                pacientes.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(paciente => {
+                    pacientesTableBody.appendChild(createPatientRow(paciente));
+                });
+            }
+            lucide.createIcons();
+        };
+
+        const populatePacienteDomiciliosDropdown = async (selectedValue = null) => {
+            if (!currentUserData) return;
+            let q;
+            const domiciliosCollection = collection(db, "domicilios");
+
+            if (currentUserData.role === 'admin') {
+                q = query(domiciliosCollection);
+            } else {
+                q = query(domiciliosCollection,
+                    where("createdBy", "==", currentUserData.uid));
+            }
+
+            pacienteDomicilioSelect.innerHTML = '<option value="">Selecione um domicílio</option>';
+            const querySnapshot = await getDocs(q);
+            if (querySnapshot.empty) {
+                pacienteDomicilioSelect.innerHTML = '<option value="">Nenhum domicílio cadastrado</option>';
+            }
+            querySnapshot.forEach(doc => {
+                const dom = doc.data();
+                const option = document.createElement('option');
+                option.value = doc.id;
+                option.textContent = `Família ${dom.numero_familia} - ${dom.endereco}, Nº ${dom.numero}`;
+                option.dataset.endereco = `${dom.endereco}, Nº ${dom.numero}`;
+                option.dataset.familia = dom.numero_familia || '';
+                pacienteDomicilioSelect.appendChild(option);
+            });
+
+            if (selectedValue) {
+                pacienteDomicilioSelect.value = selectedValue;
+            }
+        }
+        
+        document.getElementById('show-paciente-form-btn').addEventListener('click', async () => {
+            pacienteForm.reset();
+            pacienteIdInput.value = '';
+            document.getElementById('paciente-idade').value = '';
+            document.querySelectorAll('#condicoes-saude-container input').forEach(cb => cb.checked = false);
+            await populatePacienteDomiciliosDropdown();
+            pacienteFormTitle.textContent = 'Novo Paciente';
+            pacienteViewContent.classList.add('hidden');
+            pacienteFormContent.classList.remove('hidden');
+        });
+        
+        document.getElementById('cancel-paciente-form-btn').addEventListener('click', () => {
+            pacienteFormContent.classList.add('hidden');
+            pacienteViewContent.classList.remove('hidden');
+        });
+
+        document.getElementById('paciente-nascimento').addEventListener('input', (e) => {
+            const age = calculateAge(e.target.value);
+            document.getElementById('paciente-idade').value = age;
+        });
+
+        pacienteForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUserData) return;
+
+            const domicilioId = pacienteDomicilioSelect.value;
+            if (!domicilioId) {
+                alert("Por favor, selecione um domicílio para o paciente.");
+                return;
+            }
+
+            const id = pacienteIdInput.value;
+            const condicoes = [];
+            document.querySelectorAll('#condicoes-saude-container input:checked').forEach(cb => condicoes.push(cb.value));
+            const selectedOption = pacienteDomicilioSelect.options[pacienteDomicilioSelect.selectedIndex];
+
+            const data = {
+                nome: document.getElementById('paciente-nome').value,
+                cns: document.getElementById('paciente-cns').value,
+                nascimento: document.getElementById('paciente-nascimento').value,
+                sexo: document.getElementById('paciente-sexo').value,
+                bolsaFamilia: document.getElementById('paciente-bolsa-familia').value,
+                nis: document.getElementById('paciente-nis').value,
+                condicoes: condicoes,
+                domicilioId: domicilioId,
+                domicilioEndereco: selectedOption.dataset.endereco,
+                domicilioFamiliaNumero: selectedOption.dataset.familia || '',
+            };
+
+            try {
+                if (id) {
+                    await updateDoc(doc(db, 'pacientes', id), data);
+                } else {
+                    const newDoc = {
+                        ...data,
+                        equipe: currentUserData.equipe || '',
+                        microarea: currentUserData.microarea || '',
+                        createdBy: currentUserData.uid,
+                        createdAt: serverTimestamp()
+                    };
+                    await addDoc(collection(db, 'pacientes'), newDoc);
+                }
+                pacienteForm.reset();
+                pacienteFormContent.classList.add('hidden');
+                pacienteViewContent.classList.remove('hidden');
+            } catch (error) {
+                console.error("Erro ao salvar paciente:", error);
+                alert("Não foi possível salvar os dados do paciente.");
+            }
+        });
+
+        const loadPacientes = () => {
+            if (!currentUserData) return;
+            
+            let qPacientes;
+            const pacientesCollection = collection(db, "pacientes");
+
+            if (currentUserData.role === 'admin') {
+                qPacientes = query(pacientesCollection);
+            } else {
+                qPacientes = query(pacientesCollection, where("createdBy", "==", currentUserData.uid));
+            }
+
+            onSnapshot(qPacientes, async (pacientesSnapshot) => {
+                const now = new Date();
+                const startOfMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+                let qVisitas;
+                const visitasCollection = collection(db, "visitas");
+
+                if (currentUserData.role === 'admin') {
+                    qVisitas = query(visitasCollection, where("dataVisita", ">=", startOfMonthStr));
+                } else {
+                    qVisitas = query(visitasCollection, 
+                        where("createdBy", "==", currentUserData.uid),
+                        where("dataVisita", ">=", startOfMonthStr)
+                    );
+                }
+
+                const visitasSnapshot = await getDocs(qVisitas);
+                const visitStatus = {};
+                visitasSnapshot.forEach(doc => {
+                    const visita = doc.data();
+                    if (visita.pacienteId) {
+                        if (visita.desfecho === 'Visita Realizada') {
+                            visitStatus[visita.pacienteId] = 'realizada';
+                        } else if ((visita.desfecho === 'Visita Recusada' || visita.desfecho === 'Ausente') && visitStatus[visita.pacienteId] !== 'realizada') {
+                            visitStatus[visita.pacienteId] = 'recusada/ausente';
+                        }
+                    }
+                });
+                
+                const pacientesList = [];
+                pacientesSnapshot.forEach(doc => {
+                    pacientesList.push({ id: doc.id, ...doc.data() });
+                });
+                
+                lastPacientesList = pacientesList;
+                lastVisitStatus = visitStatus;
+
+                applyFiltersAndRender();
+
+            }, error => {
+                console.error("Erro ao carregar pacientes:", error);
+                pacientesTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-red-500">Erro ao carregar dados. Verifique o console.</td></tr>`;
+            });
+        };
+        
+        pacientesTableBody.addEventListener('click', async (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+            
+            const id = button.dataset.id;
+            const isEdit = button.classList.contains('edit-paciente-btn');
+            const isDelete = button.classList.contains('delete-paciente-btn');
+            
+            if (isEdit) {
+                const docRef = doc(db, 'pacientes', id);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    pacienteIdInput.value = id;
+                    document.getElementById('paciente-nome').value = data.nome || '';
+                    document.getElementById('paciente-cns').value = data.cns || '';
+                    document.getElementById('paciente-nascimento').value = data.nascimento || '';
+                    document.getElementById('paciente-idade').value = calculateAge(data.nascimento);
+                    document.getElementById('paciente-sexo').value = data.sexo || '';
+                    document.getElementById('paciente-bolsa-familia').value = data.bolsaFamilia || 'Não';
+                    document.getElementById('paciente-nis').value = data.nis || '';
+
+                    await populatePacienteDomiciliosDropdown(data.domicilioId);
+                    
+                    document.querySelectorAll('#condicoes-saude-container input').forEach(cb => cb.checked = false);
+                    if (data.condicoes && Array.isArray(data.condicoes)) {
+                        data.condicoes.forEach(cond => {
+                            const checkbox = document.querySelector(`#condicoes-saude-container input[value="${cond}"]`);
+                            if(checkbox) checkbox.checked = true;
+                        });
+                    }
+                    
+                    pacienteFormTitle.textContent = 'Editar Paciente';
+                    pacienteViewContent.classList.add('hidden');
+                    pacienteFormContent.classList.remove('hidden');
+                }
+            } else if (isDelete) {
+                if (confirm('Tem certeza que deseja excluir este paciente?')) {
+                    await deleteDoc(doc(db, 'pacientes', id));
+                }
+            }
+        });
+
+        // --- LÓGICA DE DOMICÍLIOS (CRUD) ---
+        const domicilioFormContent = document.getElementById('domicilios-form-content');
+        const domicilioViewContent = document.getElementById('domicilios-view-content');
+        const domicilioForm = document.getElementById('domicilio-form');
+        const domicilioFormTitle = document.getElementById('domicilio-form-title');
+        const domicilioIdInput = document.getElementById('domicilio-id');
+        const domiciliosTableBody = document.getElementById('domicilios-table-body');
+
+        document.getElementById('show-domicilio-form-btn').addEventListener('click', () => {
+            domicilioForm.reset();
+            domicilioIdInput.value = '';
+            domicilioFormTitle.textContent = 'Novo Domicílio';
+            domicilioViewContent.classList.add('hidden');
+            domicilioFormContent.classList.remove('hidden');
+        });
+
+        document.getElementById('cancel-domicilio-form-btn').addEventListener('click', () => {
+            domicilioFormContent.classList.add('hidden');
+            domicilioViewContent.classList.remove('hidden');
+        });
+
+        domicilioForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUserData) return;
+
+            const id = domicilioIdInput.value;
+            const data = {
+                endereco: document.getElementById('domicilio-endereco').value,
+                numero: document.getElementById('domicilio-numero').value,
+                numero_familia: document.getElementById('domicilio-familia-numero').value,
+                tipo: document.getElementById('domicilio-tipo').value,
+            };
+
+            try {
+                if (id) {
+                    await updateDoc(doc(db, 'domicilios', id), data);
+                } else {
+                    const newDoc = {
+                        ...data,
+                        equipe: currentUserData.equipe || '',
+                        microarea: currentUserData.microarea || '',
+                        createdBy: currentUserData.uid,
+                        createdAt: serverTimestamp()
+                    };
+                    await addDoc(collection(db, 'domicilios'), newDoc);
+                }
+                domicilioForm.reset();
+                domicilioFormContent.classList.add('hidden');
+                domicilioViewContent.classList.remove('hidden');
+            } catch (error) {
+                console.error("Erro ao salvar domicílio:", error);
+                alert("Não foi possível salvar os dados do domicílio.");
+            }
+        });
+        
+        const loadDomicilios = () => {
+            if (!currentUserData) return;
+            
+            let q;
+            const domiciliosCollection = collection(db, "domicilios");
+
+            if (currentUserData.role === 'admin') {
+                q = query(domiciliosCollection);
+            } else {
+                q = query(domiciliosCollection, where("createdBy", "==", currentUserData.uid));
+            }
+
+            onSnapshot(q, async (domiciliosSnapshot) => {
+                let qPacientes;
+                 if (currentUserData.role === 'admin') {
+                    qPacientes = query(collection(db, "pacientes"));
+                } else {
+                    qPacientes = query(collection(db, "pacientes"), where("createdBy", "==", currentUserData.uid));
+                }
+                const pacientesSnapshot = await getDocs(qPacientes);
+                const residentCounts = {};
+                pacientesSnapshot.forEach(pDoc => {
+                    const paciente = pDoc.data();
+                    if (paciente.domicilioId) {
+                        residentCounts[paciente.domicilioId] = (residentCounts[paciente.domicilioId] || 0) + 1;
+                    }
+                });
+
+                domiciliosTableBody.innerHTML = '';
+                if (domiciliosSnapshot.empty) {
+                    domiciliosTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500">Nenhum domicílio encontrado.</td></tr>`;
+                    return;
+                }
+                
+                const domiciliosList = [];
+                domiciliosSnapshot.forEach(doc => {
+                    domiciliosList.push({ id: doc.id, ...doc.data() });
+                });
+
+                domiciliosList.sort((a, b) => {
+                    const numA = parseInt(a.numero_familia, 10) || 0;
+                    const numB = parseInt(b.numero_familia, 10) || 0;
+                    return numA - numB;
+                });
+
+                domiciliosList.forEach((domicilio) => {
+                    const count = residentCounts[domicilio.id] || 0;
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50 border-t';
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 font-bold">${domicilio.numero_familia || ''}</td>
+                        <td class="px-6 py-4">${domicilio.endereco}</td>
+                        <td class="px-6 py-4">${domicilio.numero}</td>
+                        <td class="px-6 py-4">${count}</td>
+                        <td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${domicilio.tipo === 'CASA VAZIA' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}">${domicilio.tipo}</span></td>
+                        <td class="px-6 py-4 flex items-center gap-2">
+                            <button class="edit-domicilio-btn text-blue-500 hover:text-blue-700" data-id="${domicilio.id}"><i data-lucide="edit" class="w-5 h-5"></i></button>
+                            <button class="delete-domicilio-btn text-red-500 hover:text-red-700" data-id="${domicilio.id}"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                        </td>
+                    `;
+                    domiciliosTableBody.appendChild(tr);
+                });
+                lucide.createIcons();
+            }, error => {
+                console.error("Erro ao carregar domicílios:", error);
+                domiciliosTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red-500">Erro ao carregar dados. Verifique o console.</td></tr>`;
+            });
+        };
+
+        domiciliosTableBody.addEventListener('click', async (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+            
+            const id = button.dataset.id;
+            const isEdit = button.classList.contains('edit-domicilio-btn');
+            const isDelete = button.classList.contains('delete-domicilio-btn');
+            
+            if (isEdit) {
+                const docRef = doc(db, 'domicilios', id);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    domicilioIdInput.value = id;
+                    document.getElementById('domicilio-endereco').value = data.endereco || '';
+                    document.getElementById('domicilio-numero').value = data.numero || '';
+                    document.getElementById('domicilio-familia-numero').value = data.numero_familia || '';
+                    document.getElementById('domicilio-tipo').value = data.tipo || 'CASA';
+                    
+                    domicilioFormTitle.textContent = 'Editar Domicílio';
+                    domicilioViewContent.classList.add('hidden');
+                    domicilioFormContent.classList.remove('hidden');
+                }
+            } else if (isDelete) {
+                if (confirm('Tem certeza que deseja excluir este domicílio?')) {
+                    await deleteDoc(doc(db, 'domicilios', id));
+                }
+            }
+        });
+        
+        // --- LÓGICA DE VISITAS (CRUD) ---
+        const visitaFormContent = document.getElementById('visitas-form-content');
+        const visitaViewContent = document.getElementById('visitas-view-content');
+        const visitaForm = document.getElementById('visita-form');
+        const visitaFormTitle = document.getElementById('visita-form-title');
+        const visitaIdInput = document.getElementById('visita-id');
+        const visitasTableBody = document.getElementById('visitas-table-body');
+        const pacienteVisitaInput = document.getElementById('visita-paciente-input');
+        const pacienteVisitaDatalist = document.getElementById('pacientes-list');
+
+        const populatePacientesDatalist = async () => {
+             if (!currentUserData) return;
+            let q;
+            const pacientesCollection = collection(db, "pacientes");
+
+            if (currentUserData.role === 'admin') {
+                q = query(pacientesCollection);
+            } else {
+                q = query(pacientesCollection, 
+                          where("createdBy", "==", currentUserData.uid));
+            }
+            
+            pacienteVisitaDatalist.innerHTML = '';
+            const querySnapshot = await getDocs(q);
+            querySnapshot.forEach(doc => {
+                const paciente = doc.data();
+                const option = document.createElement('option');
+                option.value = paciente.nome;
+                option.dataset.id = doc.id;
+                pacienteVisitaDatalist.appendChild(option);
+            });
+        };
+
+        document.getElementById('show-visita-form-btn').addEventListener('click', async () => {
+            visitaForm.reset();
+            visitaIdInput.value = '';
+            visitaFormTitle.textContent = 'Registrar Nova Visita';
+            await populatePacientesDatalist();
+            visitaViewContent.classList.add('hidden');
+            visitaFormContent.classList.remove('hidden');
+        });
+
+        document.getElementById('cancel-visita-form-btn').addEventListener('click', () => {
+            visitaFormContent.classList.add('hidden');
+            visitaViewContent.classList.remove('hidden');
+        });
+
+        visitaForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUserData) return;
+
+            const id = visitaIdInput.value;
+            const pacienteNome = pacienteVisitaInput.value;
+            let pacienteId = null;
+
+            // Encontra o ID do paciente a partir do nome selecionado na datalist
+            for (const option of pacienteVisitaDatalist.options) {
+                if (option.value === pacienteNome) {
+                    pacienteId = option.dataset.id;
+                    break;
+                }
+            }
+
+            if (!pacienteId) {
+                alert('Por favor, selecione um paciente válido da lista.');
+                return;
+            }
+
+            const motivosSelecionados = [];
+            document.querySelectorAll('#motivos-container input[type="checkbox"]:checked').forEach(cb => {
+                motivosSelecionados.push(cb.value);
+            });
+
+            const data = {
+                pacienteId,
+                pacienteNome,
+                riscoDengue: document.getElementById('imovel-dengue').checked,
+                novaConstrucao: document.getElementById('imovel-construcao').checked,
+                visitaCompartilhada: document.getElementById('visita-compartilhada').checked,
+                higiene: document.getElementById('visita-higiene').value,
+                conservacao: document.getElementById('visita-conservacao').value,
+                desfecho: document.querySelector('input[name="desfecho"]:checked')?.value || null,
+                motivos: motivosSelecionados,
+                observacao: document.getElementById('visita-observacao').value,
+                dataVisita: document.getElementById('visita-data').value
+            };
+
+            if(!data.dataVisita){
+                alert("O campo 'Data da Visita' é obrigatório.");
+                return;
+            }
+            if(!data.desfecho){
+                alert("O campo 'Desfecho da Visita' é obrigatório.");
+                return;
+            }
+            
+            try {
+                if (id) {
+                    await updateDoc(doc(db, 'visitas', id), data);
+                } else {
+                    const newDoc = {
+                        ...data,
+                        equipe: currentUserData.equipe || '',
+                        microarea: currentUserData.microarea || '',
+                        createdBy: currentUserData.uid,
+                        createdAt: serverTimestamp()
+                    };
+                    await addDoc(collection(db, 'visitas'), newDoc);
+                }
+                visitaForm.reset();
+                visitaFormContent.classList.add('hidden');
+                visitaViewContent.classList.remove('hidden');
+            } catch (error) {
+                console.error("Erro ao salvar visita:", error);
+                alert("Não foi possível salvar os dados da visita.");
+            }
+        });
+        
+        const loadVisitas = () => {
+             if (!currentUserData) return;
+            
+            let q;
+            const visitasCollection = collection(db, "visitas");
+
+            if (currentUserData.role === 'admin') {
+                q = query(visitasCollection);
+            } else {
+                q = query(visitasCollection, where("createdBy", "==", currentUserData.uid));
+            }
+
+            onSnapshot(q, (querySnapshot) => {
+                visitasTableBody.innerHTML = '';
+                if (querySnapshot.empty) {
+                    visitasTableBody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-gray-500">Nenhuma visita registrada.</td></tr>`;
+                    return;
+                }
+                querySnapshot.forEach((doc) => {
+                    const visita = doc.data();
+                    let dataFormatada = 'N/D';
+                    if (visita.dataVisita) {
+                        // Handle both timestamp and string dates for backward compatibility
+                        if (visita.dataVisita.toDate) {
+                            const dateObj = visita.dataVisita.toDate();
+                            dataFormatada = dateObj.toLocaleDateString('pt-BR');
+                        } else if (typeof visita.dataVisita === 'string') {
+                            const [ano, mes, dia] = visita.dataVisita.split('-');
+                            if(dia && mes && ano) dataFormatada = `${dia}/${mes}/${ano}`;
+                        }
+                    }
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50 border-t';
+                    tr.innerHTML = `
+                        <td class="px-6 py-4">${dataFormatada}</td>
+                        <td class="px-6 py-4">${visita.pacienteNome}</td>
+                        <td class="px-6 py-4">${visita.desfecho}</td>
+                        <td class="px-6 py-4 flex items-center gap-2">
+                            <button class="edit-visita-btn text-blue-500 hover:text-blue-700" data-id="${doc.id}"><i data-lucide="edit" class="w-5 h-5"></i></button>
+                            <button class="delete-visita-btn text-red-500 hover:text-red-700" data-id="${doc.id}"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                        </td>
+                    `;
+                    visitasTableBody.appendChild(tr);
+                });
+                lucide.createIcons();
+            }, error => {
+                console.error("Erro ao carregar visitas:", error);
+                visitasTableBody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-red-500">Erro ao carregar dados. Verifique o console.</td></tr>`;
+            });
+        };
+
+         visitasTableBody.addEventListener('click', async (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+            
+            const id = button.dataset.id;
+            const isEdit = button.classList.contains('edit-visita-btn');
+            const isDelete = button.classList.contains('delete-visita-btn');
+            
+            if (isEdit) {
+                const docRef = doc(db, 'visitas', id);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    
+                    visitaForm.reset();
+                    visitaIdInput.value = id;
+                    await populatePacientesDatalist();
+
+                    let dataParaInput = '';
+                    if (data.dataVisita) {
+                        if (data.dataVisita.toDate) { // It's a Timestamp object
+                           dataParaInput = data.dataVisita.toDate().toISOString().split('T')[0];
+                        } else { // It's a string
+                           dataParaInput = data.dataVisita;
+                        }
+                    }
+                    document.getElementById('visita-data').value = dataParaInput;
+
+                    pacienteVisitaInput.value = data.pacienteNome || '';
+                    document.getElementById('imovel-dengue').checked = data.riscoDengue || false;
+                    document.getElementById('imovel-construcao').checked = data.novaConstrucao || false;
+                    document.getElementById('visita-compartilhada').checked = data.visitaCompartilhada || false;
+                    document.getElementById('visita-higiene').value = data.higiene || 'Bom';
+                    document.getElementById('visita-conservacao').value = data.conservacao || 'Bom';
+                    document.getElementById('visita-observacao').value = data.observacao || '';
+                    
+                    if(data.desfecho) {
+                        document.querySelector(`input[name="desfecho"][value="${data.desfecho}"]`).checked = true;
+                    }
+
+                    document.querySelectorAll('#motivos-container input[type="checkbox"]').forEach(cb => cb.checked = false);
+                    if (data.motivos && Array.isArray(data.motivos)) {
+                        data.motivos.forEach(motivo => {
+                            const checkbox = document.querySelector(`#motivos-container input[value="${motivo}"]`);
+                            if(checkbox) checkbox.checked = true;
+                        });
+                    }
+                    
+                    visitaFormTitle.textContent = 'Editar Registro de Visita';
+                    visitaViewContent.classList.add('hidden');
+                    visitaFormContent.classList.remove('hidden');
+                }
+            } else if (isDelete) {
+                if (confirm('Tem certeza que deseja excluir este registro de visita?')) {
+                    await deleteDoc(doc(db, 'visitas', id));
+                }
+            }
+        });
+
+        // --- INICIALIZAÇÃO E DASHBOARD ---
+        
+        function loadInitialData() {
+            loadPacientes();
+            loadDomicilios();
+            loadVisitas();
+            updateGeneralIndicators();
+        }
+
+        async function updateGeneralIndicators() {
+            if(!currentUserData) return;
+
+            const getQuery = (collectionName) => {
+                if(currentUserData.role === 'admin') {
+                    return query(collection(db, collectionName));
+                } else {
+                    return query(collection(db, collectionName), where("createdBy", "==", currentUserData.uid));
+                }
+            };
+
+            onSnapshot(getQuery("pacientes"), (snap) => document.getElementById('indicator-pacientes').textContent = snap.size);
+            onSnapshot(getQuery("domicilios"), (snap) => {
+                const familias = new Set();
+                snap.forEach(doc => {
+                    if(doc.data().numero_familia) familias.add(doc.data().numero_familia);
+                });
+                document.getElementById('indicator-domicilios').textContent = snap.size;
+                document.getElementById('indicator-familias').textContent = familias.size;
+            });
+            
+            const now = new Date();
+            const monthName = now.toLocaleString('pt-BR', { month: 'long' });
+            const year = now.getFullYear();
+            const startOfMonthStr = `${year}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+            
+            const visitasMesSpan = document.getElementById('indicator-visitas-mes');
+            if(visitasMesSpan) visitasMesSpan.textContent = `${monthName}/${year}`;
+            
+            const pendenciasMesSpan = document.getElementById('indicator-pendencias-mes');
+            if(pendenciasMesSpan) pendenciasMesSpan.textContent = `${monthName}/${year}`;
+            
+            const pacientesSnap = await getDocs(getQuery("pacientes"));
+            const totalPacientes = pacientesSnap.size;
+
+            let qVisitasMes;
+            if(currentUserData.role === 'admin') {
+                qVisitasMes = query(collection(db, "visitas"), where("dataVisita", ">=", startOfMonthStr));
+            } else {
+                qVisitasMes = query(collection(db, "visitas"), where("createdBy", "==", currentUserData.uid), where("dataVisita", ">=", startOfMonthStr));
+            }
+
+            onSnapshot(qVisitasMes, (snap) => {
+                const pacientesVisitados = new Set(snap.docs.map(d => d.data().pacienteId));
+                document.getElementById('indicator-visitas').textContent = snap.size;
+                document.getElementById('indicator-pendencias').textContent = totalPacientes - pacientesVisitados.size;
+            });
+        }
+        
+        async function updateDashboard() {
+            if (!currentUserData) return;
+
+            const quadInfo = getCurrentQuadrimestreInfo();
+            const quadLabel = document.getElementById('quadrimestre-label');
+            if (quadLabel) quadLabel.textContent = quadInfo.label;
+            
+            let qPacientes, qVisitas;
+            if (currentUserData.role === 'admin') {
+                qPacientes = query(collection(db, "pacientes"));
+                qVisitas = query(collection(db, "visitas"));
+            } else {
+                qPacientes = query(collection(db, "pacientes"), where("createdBy", "==", currentUserData.uid));
+                qVisitas = query(collection(db, "visitas"), where("createdBy", "==", currentUserData.uid));
+            }
+
+            const [pacientesSnapshot, visitasSnapshot] = await Promise.all([getDocs(qPacientes), getDocs(qVisitas)]);
+            
+            const allPacientes = pacientesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const allVisitas = visitasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Process data for indicators here...
+        }
+
+        
+        // Renderiza os checkboxes de condições de saúde
+        const condicoesContainer = document.getElementById('condicoes-saude-container');
+        condicoesDeSaude.forEach(cond => {
+            const div = document.createElement('div');
+            div.className = 'flex items-center';
+            div.innerHTML = `
+                <input id="cond-${cond.replace(/\s+/g, '-')}" value="${cond}" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                <label for="cond-${cond.replace(/\s+/g, '-')}" class="ml-2">${cond}</label>
+            `;
+            condicoesContainer.appendChild(div);
+        });
+        
+        // Renderiza os checkboxes de motivos da visita
+        const motivosContainer = document.getElementById('motivos-container');
+        for (const categoria in motivosVisita) {
+            const fieldset = document.createElement('fieldset');
+            fieldset.className = "space-y-2";
+            const legend = document.createElement('legend');
+            legend.className = "font-semibold text-gray-800 text-sm";
+            legend.textContent = categoria;
+            fieldset.appendChild(legend);
+            motivosVisita[categoria].forEach(motivo => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center';
+                const id = `motivo-${motivo.replace(/[\s/]+/g, '-')}`;
+                div.innerHTML = `
+                    <input id="${id}" value="${motivo}" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="${id}" class="ml-2 text-sm text-gray-600">${motivo}</label>
+                `;
+                fieldset.appendChild(div);
+            });
+            motivosContainer.appendChild(fieldset);
+        }
+
+        const populateFilterDropdown = () => {
+            const separator = document.createElement('option');
+            separator.disabled = true;
+            separator.textContent = '--- CONDIÇÕES ---';
+            filterPacientesSelect.appendChild(separator);
+
+            condicoesDeSaude.forEach(cond => {
+                const option = document.createElement('option');
+                option.value = cond;
+                option.textContent = cond;
+                filterPacientesSelect.appendChild(option);
+            });
+        };
+        populateFilterDropdown();
+
+        lucide.createIcons();
+        
+        const sidebar = document.getElementById('sidebar');
+        const menuButton = document.getElementById('menu-button');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+        const toggleMenu = () => {
+            sidebar.classList.toggle('-translate-x-full');
+            sidebarOverlay.classList.toggle('hidden');
+        };
+
+        menuButton.addEventListener('click', toggleMenu);
+        sidebarOverlay.addEventListener('click', toggleMenu);
+    </script>
+</body>
+</html>
+
