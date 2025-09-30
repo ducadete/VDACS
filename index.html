@@ -228,11 +228,17 @@
                                     <input id="search-paciente-input" type="search" class="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Buscar paciente...">
                                 </div>
                                 <!-- Filter Dropdown -->
-                                <select id="filter-pacientes-select" class="w-full sm:w-auto border rounded-lg text-sm px-4 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="todos">Filtrar por...</option>
+                                 <select id="filter-pacientes-select" class="w-full sm:w-auto border rounded-lg text-sm px-4 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="todos">Filtrar por Condição...</option>
                                     <option value="com-visita">Com Visita (mês)</option>
                                     <option value="sem-visita">Sem Visita (mês)</option>
                                 </select>
+                                <select id="filter-address-select" class="w-full sm:w-auto border rounded-lg text-sm px-4 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="todos">Filtrar por Endereço...</option>
+                                </select>
+                                <button id="clear-filters-btn" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 flex items-center justify-center shrink-0">
+                                    <i data-lucide="rotate-ccw" class="w-4 h-4 mr-2"></i> Limpar
+                                 </button>
                                 <label for="group-by-family-toggle" class="flex items-center cursor-pointer">
                                     <span class="mr-3 text-sm font-medium text-gray-900">Agrupar</span>
                                     <div class="relative">
@@ -808,11 +814,14 @@
         const groupByFamilyToggle = document.getElementById('group-by-family-toggle');
         const searchPacienteInput = document.getElementById('search-paciente-input');
         const filterPacientesSelect = document.getElementById('filter-pacientes-select');
+        const filterAddressSelect = document.getElementById('filter-address-select');
+        const clearFiltersBtn = document.getElementById('clear-filters-btn');
         
         let lastPacientesList = [];
         let lastVisitStatus = {};
         let searchTerm = '';
-        let activeFilter = 'todos';
+        let activeConditionFilter = 'todos';
+        let activeAddressFilter = 'todos';
         
         const applyFiltersAndRender = () => {
             let filteredPacientes = [...lastPacientesList];
@@ -824,17 +833,22 @@
                 );
             }
 
-            // 2. Dropdown filter
-            if (activeFilter && activeFilter !== 'todos') {
-                if (activeFilter === 'com-visita') {
+            // 2. Condition/Visit filter
+            if (activeConditionFilter && activeConditionFilter !== 'todos') {
+                if (activeConditionFilter === 'com-visita') {
                     filteredPacientes = filteredPacientes.filter(p => lastVisitStatus[p.id]);
-                } else if (activeFilter === 'sem-visita') {
+                } else if (activeConditionFilter === 'sem-visita') {
                     filteredPacientes = filteredPacientes.filter(p => !lastVisitStatus[p.id]);
                 } else { // It's a health condition
                     filteredPacientes = filteredPacientes.filter(p =>
-                        p.condicoes && p.condicoes.includes(activeFilter)
+                        p.condicoes && p.condicoes.includes(activeConditionFilter)
                     );
                 }
+            }
+            
+            // 3. Address filter
+            if (activeAddressFilter && activeAddressFilter !== 'todos') {
+                filteredPacientes = filteredPacientes.filter(p => p.domicilioId === activeAddressFilter);
             }
 
             renderPacientes(filteredPacientes, lastVisitStatus);
@@ -846,7 +860,22 @@
         });
 
         filterPacientesSelect.addEventListener('change', (e) => {
-            activeFilter = e.target.value;
+            activeConditionFilter = e.target.value;
+            applyFiltersAndRender();
+        });
+        
+        filterAddressSelect.addEventListener('change', (e) => {
+            activeAddressFilter = e.target.value;
+            applyFiltersAndRender();
+        });
+
+        clearFiltersBtn.addEventListener('click', () => {
+            searchPacienteInput.value = '';
+            searchTerm = '';
+            filterPacientesSelect.value = 'todos';
+            activeConditionFilter = 'todos';
+            filterAddressSelect.value = 'todos';
+            activeAddressFilter = 'todos';
             applyFiltersAndRender();
         });
 
@@ -873,7 +902,9 @@
                 const currentStatus = statusInfo[status] || defaultStatus;
                 const idade = calculateAge(paciente.nascimento);
                 const tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-50 border-t';
+                tr.className = 'hover:bg-gray-50 border-t cursor-pointer';
+                tr.dataset.id = paciente.id;
+                tr.dataset.name = paciente.nome;
                 tr.innerHTML = `
                     <td class="px-6 py-4 flex items-center">
                         <span class="h-3 w-3 rounded-full mr-3 shrink-0 ${currentStatus.color}" title="${currentStatus.title}"></span>
@@ -930,7 +961,7 @@
             lucide.createIcons();
         };
 
-        const populatePacienteDomiciliosDropdown = async (selectedValue = null) => {
+        const populatePacienteDomiciliosDropdown = async (selectElement, selectedValue = null) => {
             if (!currentUserData) return;
             let q;
             const domiciliosCollection = collection(db, "domicilios");
@@ -942,23 +973,40 @@
                     where("createdBy", "==", currentUserData.uid));
             }
 
-            pacienteDomicilioSelect.innerHTML = '<option value="">Selecione um domicílio</option>';
+            selectElement.innerHTML = `<option value="">Selecione o domicílio...</option>`;
+            if (selectElement.id === 'filter-address-select') {
+                selectElement.innerHTML = `<option value="todos">Todos os Endereços</option>`;
+            }
+
             const querySnapshot = await getDocs(q);
             if (querySnapshot.empty) {
-                pacienteDomicilioSelect.innerHTML = '<option value="">Nenhum domicílio cadastrado</option>';
+                selectElement.innerHTML += '<option value="" disabled>Nenhum domicílio cadastrado</option>';
             }
-            querySnapshot.forEach(doc => {
+            
+            const options = [];
+             querySnapshot.forEach(doc => {
                 const dom = doc.data();
-                const option = document.createElement('option');
-                option.value = doc.id;
-                option.textContent = `Família ${dom.numero_familia} - ${dom.endereco}, Nº ${dom.numero}`;
-                option.dataset.endereco = `${dom.endereco}, Nº ${dom.numero}`;
-                option.dataset.familia = dom.numero_familia || '';
-                pacienteDomicilioSelect.appendChild(option);
+                options.push({
+                    value: doc.id,
+                    text: `Família ${dom.numero_familia} - ${dom.endereco}, Nº ${dom.numero}`,
+                    endereco: `${dom.endereco}, Nº ${dom.numero}`,
+                    familia: dom.numero_familia || ''
+                });
+            });
+            
+            options.sort((a,b) => (parseInt(a.familia,10) || 0) - (parseInt(b.familia,10) || 0) || a.endereco.localeCompare(b.endereco));
+
+            options.forEach(optData => {
+                 const option = document.createElement('option');
+                option.value = optData.value;
+                option.textContent = optData.text;
+                option.dataset.endereco = optData.endereco;
+                option.dataset.familia = optData.familia;
+                selectElement.appendChild(option);
             });
 
             if (selectedValue) {
-                pacienteDomicilioSelect.value = selectedValue;
+                selectElement.value = selectedValue;
             }
         }
         
@@ -967,7 +1015,7 @@
             pacienteIdInput.value = '';
             document.getElementById('paciente-idade').value = '';
             document.querySelectorAll('#condicoes-saude-container input').forEach(cb => cb.checked = false);
-            await populatePacienteDomiciliosDropdown();
+            await populatePacienteDomiciliosDropdown(pacienteDomicilioSelect);
             pacienteFormTitle.textContent = 'Novo Paciente';
             pacienteViewContent.classList.add('hidden');
             pacienteFormContent.classList.remove('hidden');
@@ -1112,7 +1160,7 @@
                     document.getElementById('paciente-bolsa-familia').value = data.bolsaFamilia || 'Não';
                     document.getElementById('paciente-nis').value = data.nis || '';
 
-                    await populatePacienteDomiciliosDropdown(data.domicilioId);
+                    await populatePacienteDomiciliosDropdown(pacienteDomicilioSelect, data.domicilioId);
                     
                     document.querySelectorAll('#condicoes-saude-container input').forEach(cb => cb.checked = false);
                     if (data.condicoes && Array.isArray(data.condicoes)) {
@@ -1131,6 +1179,26 @@
                     await deleteDoc(doc(db, 'pacientes', id));
                 }
             }
+        });
+
+        pacientesTableBody.addEventListener('dblclick', (e) => {
+            const row = e.target.closest('tr');
+            if (!row || !row.dataset.id) return;
+
+            const patientName = row.dataset.name;
+            
+            // 1. Switch to the Visitas view
+            const visitasNavLink = document.querySelector('a.nav-link[data-view="visitas"]');
+            if (visitasNavLink) {
+                visitasNavLink.click();
+            }
+
+            // 2. Open the form and pre-fill the name
+            // Use a timeout to allow the view to switch before manipulating the form
+            setTimeout(async () => {
+                document.getElementById('show-visita-form-btn').click();
+                document.getElementById('visita-paciente-input').value = patientName;
+            }, 100);
         });
 
         // --- LÓGICA DE DOMICÍLIOS (CRUD) ---
